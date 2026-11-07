@@ -75,6 +75,7 @@ const state = {
   busy: false,
   error: "",
   notice: null,
+  pendingImages: {},
   remember: false,
   connected: false
 };
@@ -441,6 +442,7 @@ async function connect({ silent = false } = {}) {
     state.repoFullName = repoInfo.full_name || `${state.owner}/${state.repo}`;
     state.docs = docs;
     state.initialDocs = deepClone(docs);
+    state.pendingImages = {};
     state.connected = true;
     state.busy = false;
 
@@ -803,6 +805,34 @@ function settingsSection(number, title, description, body) {
     </section>`;
 }
 
+function heroImageField() {
+  const current = String(getPath(state.docs.site, "hero.artImage") || "");
+  const hasImage = Boolean(current);
+  return `
+    <div class="afield afield--wide aimg-field">
+      <span><strong>首页主视觉图片</strong><small>上传后替换右侧内置插画</small></span>
+      <div class="aimg">
+        <div class="aimg__preview${hasImage ? " has-image" : ""}">
+          ${
+            hasImage
+              ? `<img src="${escapeHTML(current)}" alt="主视觉图片预览" />`
+              : `<span class="aimg__empty">${icon("image", 22)}<small>当前使用内置插画</small></span>`
+          }
+        </div>
+        <div class="aimg__actions">
+          <label class="admin-btn aimg__upload">
+            ${icon("upload", 13)} 上传图片
+            <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-upload="hero" hidden />
+          </label>
+          <button class="admin-btn aimg__clear" type="button" data-action="clear-hero-image" ${hasImage ? "" : "disabled"}>
+            ${icon("trash", 13)} 恢复内置插画
+          </button>
+        </div>
+        <small>支持 PNG / JPG / WebP / GIF（GIF 取第一帧）。图片会在预览中立即生效，并随「发布更新」写入仓库 assets/img/ 目录；边长超过 1600px 会自动压缩。建议使用 4:3 或接近方形的横向截图。</small>
+      </div>
+    </div>`;
+}
+
 function renderSiteTab() {
   const site = state.docs.site;
   const about = site.about || {};
@@ -823,6 +853,7 @@ function renderSiteTab() {
           ${siteField("guild.nameEn", "英文名", { placeholder: "SHENZHOU" })}
           ${siteField("guild.server", "服务器名", { required: true, placeholder: "OrangeMC" })}
           ${siteField("guild.edition", "版本 / 玩法说明", { placeholder: "Java Edition · 长期生存" })}
+          ${siteField("guild.mainCity", "主城名称", { placeholder: "太虚山", help: "首页主视觉标签、加入页碰头地点等会引用这个名字。" })}
           ${siteField("guild.founded", "成立日期", { type: "date" })}
           ${siteField("guild.recruitNote", "招新状态文案", { placeholder: "2026 秋季招新进行中" })}
           ${siteToggle("guild.recruiting", "开放招新", "关闭后，页头按钮与首页招新区块会切换为「暂未开放」。")}
@@ -848,6 +879,10 @@ function renderSiteTab() {
           ${siteField("hero.primaryLink", "主按钮链接", { placeholder: "#/join" })}
           ${siteField("hero.secondaryLabel", "次按钮文字", { placeholder: "浏览工程" })}
           ${siteField("hero.secondaryLink", "次按钮链接", { placeholder: "#/projects" })}
+          ${heroImageField()}
+          ${siteField("hero.artLabel", "主视觉标签", { placeholder: "太虚山 · 主城", help: "显示在图片下方第一行；留空时自动显示「主城名称 · 主城」。" })}
+          ${siteField("hero.artTag", "主视觉角标", { placeholder: "概念图", help: "显示在图片下方第二行。" })}
+          ${siteField("hero.artImageAlt", "图片替代文字", { placeholder: "太虚山主城截图", help: "图片加载失败或读屏软件朗读时使用。" })}
         </div>`
       )}
 
@@ -940,6 +975,11 @@ function renderSiteTab() {
 }
 
 function handleSiteInput(event) {
+  const uploadControl = event.target.closest("[data-upload]");
+  if (uploadControl) {
+    handleHeroImageUpload(uploadControl);
+    return;
+  }
   const control = event.target.closest("[data-path]");
   if (!control || !control.closest("#site-settings")) return;
   const path = control.dataset.path;
@@ -970,6 +1010,71 @@ function handleSiteInput(event) {
   setPath(state.docs.site, path, value);
   state.notice = null;
   updateDirtyUI();
+}
+
+function processHeroImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      try {
+        let width = image.naturalWidth || 1;
+        let height = image.naturalHeight || 1;
+        const maxSide = 1600;
+        const scale = Math.min(1, maxSide / Math.max(width, height));
+        width = Math.max(1, Math.round(width * scale));
+        height = Math.max(1, Math.round(height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext("2d");
+        context.drawImage(image, 0, 0, width, height);
+        const photo = /jpe?g|webp/i.test(file.type || "");
+        const dataURL = photo
+          ? canvas.toDataURL("image/jpeg", 0.88)
+          : canvas.toDataURL("image/png");
+        resolve({ dataURL, ext: photo ? "jpg" : "png" });
+      } catch (error) {
+        reject(error);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("无法解析这张图片"));
+    };
+    image.src = url;
+  });
+}
+
+function handleHeroImageUpload(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (!/^image\/(png|jpe?g|webp|gif)$/i.test(file.type || "")) {
+    showToast("请选择 PNG、JPG、WebP 或 GIF 图片。", "error");
+    input.value = "";
+    return;
+  }
+  if (file.size > 12 * 1024 * 1024) {
+    showToast("图片超过 12MB，请先压缩后再上传。", "error");
+    input.value = "";
+    return;
+  }
+  processHeroImage(file)
+    .then(({ dataURL, ext }) => {
+      setPath(state.docs.site, "hero.artImage", dataURL);
+      state.pendingImages.hero = { dataURL, ext, path: `assets/img/hero-upload.${ext}` };
+      markDirty();
+      renderActiveTab();
+      showToast("主视觉图片已加入草稿：预览立即可见，发布后公开生效。");
+    })
+    .catch(() => {
+      showToast("图片处理失败，请换一张图片重试。", "error");
+    })
+    .finally(() => {
+      input.value = "";
+    });
 }
 
 /* --------------------------------------------------------------------------
@@ -1222,7 +1327,7 @@ function openMemberEditor(id = "") {
       ${editorField("status", "状态", member.status, { type: "select", options: ["活跃", "暂离"] })}
       ${editorField("joined", "加入日期", member.joined, { type: "date" })}
       ${editorField("title", "一句话称号", member.title, { wide: true, placeholder: "例如：把山搬进存档的人" })}
-      ${editorField("contributions", "最近在做", member.contributions, { wide: true, placeholder: "主城规划 / 山河关城墙" })}
+      ${editorField("contributions", "最近在做", member.contributions, { wide: true, placeholder: "主城规划 / 太虚山城墙" })}
       ${editorField("tags", "标签", (member.tags || []).join("、"), { wide: true, help: "用逗号或顿号分隔，例如：建筑、地形、红石。" })}
       ${editorField("favoriteBlock", "最喜欢的方块", member.favoriteBlock, { placeholder: "云杉木" })}
       ${editorField("bio", "成员简介", member.bio, { type: "textarea", wide: true, rows: 5, placeholder: "一两件关于 TA 的小事，会显示在成员详情里。" })}
@@ -1275,7 +1380,7 @@ function openProjectEditor(id = "") {
   };
   const formHTML = `
     <div class="form-grid">
-      ${editorField("name", "工程名", project.name, { required: true, wide: true, placeholder: "例如：山河关 · 主城" })}
+      ${editorField("name", "工程名", project.name, { required: true, wide: true, placeholder: "例如：太虚山 · 主城" })}
       ${editorField("subtitle", "一句话介绍", project.subtitle, { wide: true, placeholder: "依山而建的第一座城" })}
       ${editorField("category", "分类", project.category, { required: true, placeholder: "建筑 / 交通 / 红石 / 景观 / 公共设施" })}
       ${editorField("status", "状态", project.status, { type: "select", options: ["规划中", "进行中", "收尾中", "已完工", "暂停"] })}
@@ -1350,7 +1455,7 @@ function openBuildEditor(id = "") {
   };
   const formHTML = `
     <div class="form-grid">
-      ${editorField("name", "建筑名", build.name, { required: true, wide: true, placeholder: "例如：山河关 · 南门" })}
+      ${editorField("name", "建筑名", build.name, { required: true, wide: true, placeholder: "例如：太虚山 · 南门" })}
       ${editorField("category", "分类", build.category, { required: true, placeholder: "地标 / 公共设施 / 交通 / 景观 / 农场" })}
       ${editorField("dimension", "维度", build.dimension, { type: "select", options: ["主世界", "下界", "末地"] })}
       ${editorField("x", "X", build.x, { type: "number", required: true })}
@@ -1473,6 +1578,7 @@ async function refreshFromRepo() {
     const docs = await fetchAllDocs();
     state.docs = docs;
     state.initialDocs = deepClone(docs);
+    state.pendingImages = {};
     state.busy = false;
     renderStudio();
     showToast("已从 GitHub 重新读取内容。");
@@ -1534,9 +1640,15 @@ async function publishChanges() {
     showToast("发布前请先修复内容问题。", "error");
     return;
   }
+  const heroImage = state.pendingImages.hero;
+  const publishesImage = Boolean(
+    heroImage &&
+      keys.includes("site") &&
+      String(state.docs.site?.hero?.artImage || "").startsWith("data:image/")
+  );
   if (
     !window.confirm(
-      `将发布 ${keys.length} 个数据文件到 ${state.repoFullName} 的 ${state.branch} 分支。\n\n每次发布会生成一个 GitHub 提交，公开站点通常会在 1–2 分钟后更新。确定继续吗？`
+      `将发布 ${keys.length} 个数据文件${publishesImage ? "和 1 张主视觉图片" : ""}到 ${state.repoFullName} 的 ${state.branch} 分支。\n\n每次发布会生成一个 GitHub 提交，公开站点通常会在 1–2 分钟后更新。确定继续吗？`
     )
   ) {
     return;
@@ -1552,6 +1664,9 @@ async function publishChanges() {
     keys.forEach((key) => {
       state.docs[key].updatedAt = now;
     });
+    if (publishesImage) {
+      state.docs.site.hero.artImage = heroImage.path;
+    }
 
     const ref = await github(`${repoApiPath()}/git/ref/heads/${branchPath()}`);
     const parentSha = ref.object.sha;
@@ -1571,6 +1686,18 @@ async function publishChanges() {
         sha: blob.sha
       });
     }
+    if (publishesImage) {
+      const imageBlob = await github(`${repoApiPath()}/git/blobs`, {
+        method: "POST",
+        body: { content: heroImage.dataURL.split(",")[1], encoding: "base64" }
+      });
+      tree.push({
+        path: heroImage.path,
+        mode: "100644",
+        type: "blob",
+        sha: imageBlob.sha
+      });
+    }
 
     const newTree = await github(`${repoApiPath()}/git/trees`, {
       method: "POST",
@@ -1587,6 +1714,7 @@ async function publishChanges() {
     });
 
     state.initialDocs = deepClone(state.docs);
+    state.pendingImages = {};
     state.busy = false;
     state.notice = {
       type: "success",
@@ -1658,6 +1786,15 @@ function handleClick(event) {
     state.notice = null;
     renderActiveTab();
     window.scrollTo({ top: 0, behavior: "auto" });
+    return;
+  }
+
+  if (action === "clear-hero-image") {
+    setPath(state.docs.site, "hero.artImage", "");
+    delete state.pendingImages.hero;
+    markDirty();
+    renderActiveTab();
+    showToast("已恢复内置插画，发布后生效。");
     return;
   }
 

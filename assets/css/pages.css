@@ -200,6 +200,21 @@
   filter: drop-shadow(0 30px 50px rgba(0, 0, 0, 0.28));
 }
 
+.hero__art--image {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #101614;
+}
+
+.hero__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 76 / 66;
+  object-fit: cover;
+}
+
 .hero-art__svg {
   width: 100%;
   height: auto;

@@ -16,6 +16,7 @@ export function joinPage(data) {
   const template = String(join.template || "").trim();
   const github = isSafeExternalLink(guild.github) ? safeUrl(guild.github, "") : "";
   const rawJoinTitle = String(join.title || "加入我们").trim();
+  const meetSpot = guild.mainCity ? `${guild.mainCity} · 南门` : "主城 · 南门";
   const joinTitle = /[。！？!?]$/.test(rawJoinTitle)
     ? escapeHTML(rawJoinTitle)
     : `${escapeHTML(rawJoinTitle)}<span class="title-dot">.</span>`;
@@ -97,8 +98,8 @@ export function joinPage(data) {
               ${contactItems.join("")}
               <div class="contact-chip contact-chip--static">
                 <span class="contact-chip__icon">${icon("compass", 18)}</span>
-                <span><small>碰头地点</small><strong>山河关 · 南门</strong></span>
-                <a href="#/builds" class="mini-icon-btn" aria-label="查看山河关南门坐标" title="查看坐标">${icon("pin", 15)}</a>
+                <span><small>碰头地点</small><strong>${escapeHTML(meetSpot)}</strong></span>
+                <a href="#/builds" class="mini-icon-btn" aria-label="查看${escapeHTML(meetSpot)}坐标" title="查看坐标">${icon("pin", 15)}</a>
               </div>
             </div>
             ${

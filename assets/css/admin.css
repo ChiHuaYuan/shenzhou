@@ -977,6 +977,71 @@ textarea.afield__control--code {
   line-height: 1.6;
 }
 
+.aimg {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.aimg__preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  max-height: 240px;
+  overflow: hidden;
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  background: #0c110e;
+}
+
+.aimg__preview.has-image {
+  border-style: solid;
+}
+
+.aimg__preview img {
+  display: block;
+  width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+}
+
+.aimg__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 22px;
+  color: var(--muted-low);
+}
+
+.aimg__empty small {
+  font-size: 9px;
+}
+
+.aimg__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.aimg__upload {
+  position: relative;
+  cursor: pointer;
+}
+
+.aimg__upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.aimg__clear:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .afield--inline {
   flex-direction: row;
   align-items: center;

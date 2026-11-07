@@ -8,6 +8,13 @@ import {
   safeUrl
 } from "../utils.js";
 
+function heroImageUrl(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  if (/^data:image\/(png|jpe?g|webp|gif);/i.test(raw)) return raw;
+  return safeUrl(raw, "");
+}
+
 function countUp(root) {
   const elements = root.querySelectorAll("[data-count]");
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -76,6 +83,15 @@ export function homePage(data) {
   const foundingDays = daysSince(guild.founded);
   const announcementLink = safeUrl(announcement.link, "#/projects");
 
+  const artSrc = heroImageUrl(hero.artImage);
+  const artLabel = hero.artLabel || (guild.mainCity ? `${guild.mainCity} · 主城` : "神州 · 主城");
+  const artTag = hero.artTag || "概念图";
+  const artHtml = artSrc
+    ? `<div class="hero__art hero__art--image">
+        <img class="hero__img" src="${escapeHTML(artSrc)}" alt="${escapeHTML(hero.artImageAlt || artLabel)}" loading="eager" decoding="async" />
+      </div>`
+    : `<div class="hero__art">${heroArt()}</div>`;
+
   const html = `
     <section class="hero">
       <div class="hero__backdrop" aria-hidden="true">
@@ -107,10 +123,10 @@ export function homePage(data) {
         </div>
         <div class="hero__art-wrap reveal" style="--delay:.1s">
           <div class="hero__art-aura" aria-hidden="true"></div>
-          <div class="hero__art">${heroArt()}</div>
+          ${artHtml}
           <div class="hero__art-label">
-            <span>${icon("pin", 13)} 山河关 · 主城</span>
-            <span>概念图</span>
+            <span>${icon("pin", 13)} ${escapeHTML(artLabel)}</span>
+            <span>${escapeHTML(artTag)}</span>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-07T08:25:00.782Z",
+  "updatedAt": "2026-11-07T14:21:52.000Z",
   "guild": {
     "name": "神州",
     "nameEn": "SHENZHOU",
@@ -12,12 +12,13 @@
     "serverAddress": "",
     "qqGroup": "1135068771",
     "github": "",
-    "contactNote": "游戏内联系任意神州成员，或在本站「加入我们」页找到申请方式。"
+    "contactNote": "游戏内联系任意神州成员，或在本站「加入我们」页找到申请方式。",
+    "mainCity": "太虚山"
   },
   "announcement": {
     "enabled": true,
     "label": "公会动态",
-    "text": "山河关南门封顶，主城进入内饰阶段；秋季招新同时开放。",
+    "text": "太虚山南门封顶，主城进入内饰阶段；秋季招新同时开放。",
     "linkLabel": "查看工程",
     "link": "#/projects"
   },
@@ -30,7 +31,11 @@
     "primaryLink": "#/join",
     "secondaryLabel": "浏览工程",
     "secondaryLink": "#/projects",
-    "note": "建筑 · 种地 · 交通 · 风景，以及慢慢来的长期主义"
+    "note": "建筑 · 种地 · 交通 · 风景，以及慢慢来的长期主义",
+    "artImage": "",
+    "artImageAlt": "",
+    "artLabel": "太虚山 · 主城",
+    "artTag": "概念图"
   },
   "about": {
     "eyebrow": "关于神州",
